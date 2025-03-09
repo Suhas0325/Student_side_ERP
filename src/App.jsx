@@ -3,6 +3,7 @@ import Navbar from './Components/Navbar'
 import Login from './Pages/Login'
 import Dummy from './Pages/Dummy'
 import { RecoilRoot } from 'recoil'
+import FeedbackPage from './Pages/FeedbackPage'
 
 function App() {
  
@@ -14,6 +15,7 @@ function App() {
           <Routes>
             <Route path='/' element={<Dummy/>}></Route>
             <Route path='/Login' element={<Login/>}/>
+            <Route path='/feedback' element={<FeedbackPage/>}/>
           </Routes>
         </BrowserRouter>
       </RecoilRoot>
