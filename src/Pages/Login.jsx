@@ -29,15 +29,17 @@ const LoginForm = React.memo(()=>{
           password:password,
         }),
       });
-      if(response.ok){
-        const data = await response.text();
+      const data = await response.text();
+      if(response.ok && data !== "Authentication failed"){
         const token = data;
 
         localStorage.setItem("jwtToken",token);
         navigate('/')
       } else{
-         const errorData = await response.text();
-         setError(errorData || "Authentication failed");
+        setError("Wrong password");
+        setTimeout(() => {
+          setError("");
+        }, 5000);
       }
 
       
@@ -45,6 +47,10 @@ const LoginForm = React.memo(()=>{
     catch(error){
       console.error("Error during login:", error);
       setError("An error occurred during login");
+
+      setTimeout(() => {
+        setError("");
+      }, 5000);
     }
   }
    
