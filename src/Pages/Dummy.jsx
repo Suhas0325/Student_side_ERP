@@ -9,6 +9,10 @@ function Dummy() {
   const token = localStorage.getItem("jwtToken"); // Retrieve the JWT token from local storage
 
   useEffect(() => {
+    if (!token) {
+      setLoading(false);
+      return; // If no token, don't make API request
+    }
     const fetchStudentData = async () => {
       try {
         const response = await fetch('http://localhost:8080/api/students/me', {
@@ -35,6 +39,12 @@ function Dummy() {
 
     fetchStudentData(); // Call the async function
   }, [token]); // Dependency array to run the effect only when `token` changes
+
+
+  if (!token) {
+    return <div className="text-center mt-10 text-xl font-semibold">Hello, Welcome Student! Please log in to view your details.</div>;
+  }
+
 
   if (loading) {
     return <div>Loading...</div>; // Display a loading message
