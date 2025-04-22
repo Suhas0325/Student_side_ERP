@@ -4,7 +4,7 @@ function FeedbackPage() {
   const [enrolledCourses, setEnrolledCourses] = useState([]);
   const [selectedCourse, setSelectedCourse] = useState(null);
   const [feedbackQuestions, setFeedbackQuestions] = useState([]);
-  const [startTime , setStartTime] = useState(null);
+  const [startTime, setStartTime] = useState(null);
   const [responses, setResponses] = useState({});
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -25,7 +25,6 @@ function FeedbackPage() {
         if (!response.ok) throw new Error('Failed to fetch courses');
         
         const data = await response.json();
-        console.log(data)
         setEnrolledCourses(Array.isArray(data) ? data : [data]);
       } catch (error) {
         setError(error.message);
@@ -79,11 +78,10 @@ function FeedbackPage() {
   };
 
   const handleSubmitFeedback = async () => {
-    if (!selectedCourse || !feedbackQuestions.length) return;
-   const endTime = Date.now();
-   const timeTaken = Math.floor((endTime-startTime)/1000);
+    if (!selectedCourse || !feedbackQuestions.length || selectedCourse.hasSubmitted) return;
+    const endTime = Date.now();
+    const timeTaken = Math.floor((endTime-startTime)/1000);
   
-
     try {
       setSubmitting(true);
       setError(null);
@@ -104,10 +102,8 @@ function FeedbackPage() {
         responseText: question.questionType === 'text' 
           ? String(responses[question.questionId] || '')
           : null,
-          timeTaken:timeTaken
+        timeTaken: timeTaken
       }));
-
-      console.log("Data being sent:", JSON.stringify(feedbackData, null, 2));
 
       const response = await fetch('http://localhost:8080/api/feedback/responses/save', {
         method: 'POST',
@@ -115,12 +111,10 @@ function FeedbackPage() {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${token}`,
         },
-        body: JSON.stringify(feedbackData , null ,2)
+        body: JSON.stringify(feedbackData)
       });
 
       const result = await response.text();
-
-
       
       if (!response.ok) {
         if (result.errors) {
@@ -133,6 +127,14 @@ function FeedbackPage() {
       }
 
       alert('Feedback submitted successfully!');
+      // Update the hasSubmitted status in the enrolledCourses array
+      setEnrolledCourses(prevCourses => 
+        prevCourses.map(course => 
+          course.courseId === selectedCourse.courseId && course.facultyId === selectedCourse.facultyId
+            ? { ...course, hasSubmitted: true }
+            : course
+        )
+      );
       setSelectedCourse(null);
       setResponses({});
     } catch (error) {
@@ -187,11 +189,27 @@ function FeedbackPage() {
             {enrolledCourses.map(course => (
               <div
                 key={`course-${course.courseId}-${course.facultyId}`}
-                className="p-4 border rounded-lg cursor-pointer hover:bg-gray-50"
-                onClick={() => handleCourseSelect(course)}
+                className={`p-4 border rounded-lg cursor-pointer hover:bg-gray-50 ${
+                  course.hasSubmitted ? 'bg-green-50 border-green-200' : ''
+                }`}
+                onClick={() => !course.hasSubmitted && handleCourseSelect(course)}
               >
-                <h3 className="font-bold text-lg">{course.courseName}</h3>
-                <p className="text-gray-600">Faculty: {course.facultyName}</p>
+                <div className="flex justify-between items-start">
+                  <div>
+                    <h3 className="font-bold text-lg">{course.courseName}</h3>
+                    <p className="text-gray-600">Faculty: {course.facultyName}</p>
+                  </div>
+                  {course.hasSubmitted && (
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                      Submitted
+                    </span>
+                  )}
+                </div>
+                {course.hasSubmitted && (
+                  <p className="mt-2 text-sm text-green-600">
+                    Feedback already submitted for this course
+                  </p>
+                )}
               </div>
             ))}
           </div>
@@ -210,61 +228,79 @@ function FeedbackPage() {
             </h2>
           </div>
 
-          <div className="space-y-6">
-            {feedbackQuestions.map(question => (
-              <div
-                key={`question-${question.questionId}`}
-                className="p-4 border rounded-lg bg-white shadow-sm"
-              >
-                <p className="font-semibold mb-3">{question.questionText}</p>
-                
-                {question.questionType === 'rating' ? (
-                  <div className="flex flex-wrap gap-2">
-                    {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(rating => (
-                      <button
-                        key={`rating-${question.questionId}-${rating}`}
-                        type="button"
-                        className={`w-10 h-10 flex items-center justify-center rounded-full transition-colors ${
-                          responses[question.questionId] === rating
-                            ? 'bg-blue-500 text-white'
-                            : 'bg-gray-100 hover:bg-gray-200'
-                        }`}
-                        onClick={() => handleResponseChange(question.questionId, rating)}
-                      >
-                        {rating}
-                      </button>
-                    ))}
-                  </div>
-                ) : (
-                  <textarea
-                    className="w-full p-3 border rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    rows={4}
-                    placeholder="Type your response here..."
-                    value={responses[question.questionId] || ''}
-                    onChange={(e) => handleResponseChange(question.questionId, e.target.value)}
-                  />
-                )}
+          {selectedCourse.hasSubmitted ? (
+            <div className="p-6 bg-green-50 border border-green-200 rounded-lg">
+              <div className="flex items-center">
+                <svg className="h-5 w-5 text-green-500 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+                <h3 className="text-lg font-medium text-green-800">
+                  Feedback already submitted for this course
+                </h3>
               </div>
-            ))}
-          </div>
+              <p className="mt-2 text-green-600">
+                You have already submitted feedback for {selectedCourse.courseName} with {selectedCourse.facultyName}.
+              </p>
+            </div>
+          ) : (
+            <>
+              <div className="space-y-6">
+                {feedbackQuestions.map(question => (
+                  <div
+                    key={`question-${question.questionId}`}
+                    className="p-4 border rounded-lg bg-white shadow-sm"
+                  >
+                    <p className="font-semibold mb-3">{question.questionText}</p>
+                    
+                    {question.questionType === 'rating' ? (
+                      <div className="flex flex-wrap gap-2">
+                        {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(rating => (
+                          <button
+                            key={`rating-${question.questionId}-${rating}`}
+                            type="button"
+                            className={`w-10 h-10 flex items-center justify-center rounded-full transition-colors ${
+                              responses[question.questionId] === rating
+                                ? 'bg-blue-500 text-white'
+                                : 'bg-gray-100 hover:bg-gray-200'
+                            }`}
+                            onClick={() => handleResponseChange(question.questionId, rating)}
+                          >
+                            {rating}
+                          </button>
+                        ))}
+                      </div>
+                    ) : (
+                      <textarea
+                        className="w-full p-3 border rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        rows={4}
+                        placeholder="Type your response here..."
+                        value={responses[question.questionId] || ''}
+                        onChange={(e) => handleResponseChange(question.questionId, e.target.value)}
+                      />
+                    )}
+                  </div>
+                ))}
+              </div>
 
-          <div className="mt-6 flex justify-end space-x-4">
-            <button
-              onClick={() => setSelectedCourse(null)}
-              className="px-6 py-2 bg-gray-200 rounded hover:bg-gray-300"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleSubmitFeedback}
-              disabled={submitting}
-              className={`px-6 py-2 text-white rounded ${
-                submitting ? 'bg-blue-400' : 'bg-blue-500 hover:bg-blue-600'
-              }`}
-            >
-              {submitting ? 'Submitting...' : 'Submit Feedback'}
-            </button>
-          </div>
+              <div className="mt-6 flex justify-end space-x-4">
+                <button
+                  onClick={() => setSelectedCourse(null)}
+                  className="px-6 py-2 bg-gray-200 rounded hover:bg-gray-300"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSubmitFeedback}
+                  disabled={submitting}
+                  className={`px-6 py-2 text-white rounded ${
+                    submitting ? 'bg-blue-400' : 'bg-blue-500 hover:bg-blue-600'
+                  }`}
+                >
+                  {submitting ? 'Submitting...' : 'Submit Feedback'}
+                </button>
+              </div>
+            </>
+          )}
         </div>
       )}
     </div>
